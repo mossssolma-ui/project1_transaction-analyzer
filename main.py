@@ -14,6 +14,12 @@ def main() -> None:
     rez_services = get_analize_cashback("data/operations.xlsx", 2021, 5)
     # print(rez_services)
 
+    # отчеты
+    df = pd.read_excel("data/operations.xlsx")
+    df["Дата операции"] = pd.to_datetime(df["Дата операции"], dayfirst=True)
+
+    category_report = spending_by_category(df, "Супермаркеты", "2021-05-31")
+    print(f"Траты по категории 'Супермаркеты': {len(category_report)} записей")
 
 
 if __name__ == "__main__":

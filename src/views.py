@@ -10,8 +10,8 @@ from src.utils import (
     get_top_transactions,
 )
 
-EXCEL_PATH = "../data/operations.xlsx"
-JSON_PATH = "../data/user_settings.json"
+EXCEL_PATH = "data/operations.xlsx"
+JSON_PATH = "data/user_settings.json"
 
 
 def views_info(date_time: str) -> str:
