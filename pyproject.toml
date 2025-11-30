@@ -11,6 +11,13 @@ pandas = "^2.3.3"
 openpyxl = "^3.1.5"
 requests = "^2.32.5"
 python-dotenv = "^1.2.1"
+logging = "^0.4.9.6"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.1"
+pytest-cov = "^7.0.0"
+logging = "^0.4.9.6"
 
 
 [tool.poetry.group.lint.dependencies]
@@ -18,11 +25,6 @@ flake8 = "^7.3.0"
 isort = "^7.0.0"
 black = "^25.11.0"
 mypy = "^1.18.2"
-
-
-[tool.poetry.group.test.dependencies]
-pytest = "^9.0.1"
-pytest-cov = "^7.0.0"
 
 [tool.isort]
 line_length = 119
