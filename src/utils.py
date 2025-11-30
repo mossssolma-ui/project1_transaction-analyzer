@@ -15,23 +15,7 @@ API_KEY_ALPHAVANTAGE = os.getenv("API_KEY_ALPHAVANTAGE")
 BASE_URL_ALPHAVANTAGE = os.getenv("BASE_URL_ALPHAVANTAGE")
 
 
-def get_greeting(date_time: str) -> str:
-    """Возвращает приветствие по времени суток из полученной строки"""
-    date_dt = datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
-    time_now = date_dt.hour
-
-    if 6 <= time_now < 12:
-        message = "Доброе утро"
-    elif 12 <= time_now < 18:
-        message = "Добрый день"
-    elif 18 <= time_now < 23:
-        message = "Добрый вечер"
-    else:
-        message = "Доброй ночи"
-
-    return message
-
-
+# Выборка данных из Excel-файла за определенный период
 def get_convert_dates(date_time: str, date_format: str = "%Y-%m-%d %H:%M:%S") -> list[str]:
     """
     Функция принимает строку с датой и временем
@@ -63,6 +47,25 @@ def get_data_period_from_file(filepath: str, period_dates: list[str]) -> pd.Data
     return filtered_df
 
 
+# 1. Функция "Приветствие"
+def get_greeting(date_time: str) -> str:
+    """Возвращает приветствие по времени суток из полученной строки"""
+    date_dt = datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
+    time_now = date_dt.hour
+
+    if 6 <= time_now < 12:
+        message = "Доброе утро"
+    elif 12 <= time_now < 18:
+        message = "Добрый день"
+    elif 18 <= time_now < 23:
+        message = "Добрый вечер"
+    else:
+        message = "Доброй ночи"
+
+    return message
+
+
+# 2. Функция "По каждой карте"
 def get_card_spending_summary(transactions: pd.DataFrame) -> list[dict]:
     """
     Функция принимает DataFrame и возвращает сводку по картам:
@@ -88,6 +91,7 @@ def get_card_spending_summary(transactions: pd.DataFrame) -> list[dict]:
     return result
 
 
+# 3. Функция "Топ-5 транзакций по сумме платежа"
 def get_top_transactions(transactions: pd.DataFrame, get_count: int = 5) -> list[dict]:
     """
     Функция принимает DataFrame и возвращает по умолчанию
@@ -102,11 +106,11 @@ def get_top_transactions(transactions: pd.DataFrame, get_count: int = 5) -> list
 
     result = []
     for _, row in df_sorted.iterrows():
-        date_obj = row["Дата операции"]
-        if pd.isna(date_obj):
+        date = row["Дата операции"]
+        if pd.isna(date):
             date_str = ""
         else:
-            date_str = pd.to_datetime(date_obj).strftime("%d.%m.%Y")
+            date_str = pd.to_datetime(date).strftime("%d.%m.%Y")
 
         result.append(
             {
@@ -119,78 +123,135 @@ def get_top_transactions(transactions: pd.DataFrame, get_count: int = 5) -> list
     return result
 
 
-def get_currency(filepath: str) -> list[dict]:
+# 4. Функция "Курс валют"
+def load_currency(filepath: str) -> list[str]:
     """
-    Функция берет валюты из файла .json и возвращает список словарей
-    с названием курса валюты и его курса. Курс подтягивается через API.
+    Загружает список валют из JSON-файла.
+    Возвращает список кодов валют.
     """
     try:
         with open(filepath, encoding="utf-8") as file_json:
             data = json.load(file_json)
-            currency = data.get("user_currencies", [])
-    except (FileNotFoundError, json.JSONDecodeError,Exception):
+            return data.get("user_currencies", [])  # type: ignore
+    except (FileNotFoundError, json.JSONDecodeError, Exception) as e:
+        print(f"Ошибка загрузки {e}")
         return []
-    else:
-        currency_rates = []
-        for cur in currency:
-            params = {"amount": 1, "from": cur, "to": "RUB"}
-            headers = {"apikey": API_KEY_APILAYER}
-            try:
-                response = requests.get(BASE_URL_APILAYER, headers=headers, params=params, timeout=10)  # type: ignore
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("success"):
-                        rate = round(data["result"], 2)
-                        currency_rates.append({"currency": cur, "rate": rate})
-                    else:
-                        print(f"Ошибка API, запрос по {cur} не выполнился")
-                        currency_rates.append({"currency": cur, "rate": 0.0})
-                else:
-                    print(f"Ошибка запроса: {response.status_code}")
-                    currency_rates.append({"currency": cur, "rate": 0.0})
-            except Exception as e:
-                print(f"Исключение при запросе: {cur}: {e}")
-                currency_rates.append({"currency": cur, "rate": 0.0})
 
-        return currency_rates
+
+def fetch_currency_rates(currencies: list[str]) -> list[dict]:
+    """
+    Получает курсы валют через API.
+    Возвращает список словарей с валютами и их курсами.
+    """
+    if not currencies:
+        return []
+
+    currency_rates = []
+
+    for currency in currencies:
+        rate = currency_rate_api(currency)
+        currency_rates.append({"currency": currency, "rate": rate})
+
+    return currency_rates
+
+
+def currency_rate_api(currency: str) -> float:
+    """
+    Получает курс одной валюты через API.
+    Возвращает курс или 0.0 в случае ошибки.
+    """
+    params = {"amount": 1, "from": currency, "to": "RUB"}
+    headers = {"apikey": API_KEY_APILAYER}
+
+    try:
+        response = requests.get(BASE_URL_APILAYER, headers=headers, params=params, timeout=10)  # type: ignore
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                return round(data["result"], 2)  # type: ignore
+            else:
+                print(f"Ошибка API, запрос по {currency} не выполнился")
+        else:
+            print(f"Ошибка запроса для {currency}: {response.status_code}")
+
+    except Exception as e:
+        print(f"Исключение при запросе {currency}: {e}")
+
+    return 0.0
+
+
+def get_currency(filepath: str) -> list[dict]:
+    """
+    Функция загружает настройки и получает курсы валют.
+    """
+    currencies = load_currency(filepath)
+    return fetch_currency_rates(currencies)
+
+
+# 5. Функция "Стоимость акций из S&P500"
+def load_stock(filepath: str) -> list[str]:
+    """
+    Загружает список акций из JSON-файла.
+    Возвращает список акций.
+    """
+    try:
+        with open(filepath, encoding="utf-8") as file_json:
+            data = json.load(file_json)
+            return data.get("user_stocks", [])  # type: ignore
+    except (FileNotFoundError, json.JSONDecodeError, Exception) as e:
+        print(f"Ошибка загрузки {e}")
+        return []
+
+
+def fetch_stock_prices(stocks: list[str]) -> list[dict]:
+    """
+    Получает цены акций через API.
+    Возвращает список словарей с акциями и их ценами.
+    """
+    if not stocks:
+        return []
+
+    stock_prices = []
+
+    for stock in stocks:
+        price = stock_price_api(stock)
+        stock_prices.append({"stock": stock, "price": price})
+
+    return stock_prices
+
+
+def stock_price_api(stock: str) -> float:
+    """
+    Получает цену одной акции через API.
+    Возвращает цену или 0.0 в случае ошибки.
+    """
+    params = {"function": "GLOBAL_QUOTE", "symbol": stock, "apikey": API_KEY_ALPHAVANTAGE}
+
+    try:
+        response = requests.get(BASE_URL_ALPHAVANTAGE, params=params, timeout=10)  # type: ignore
+
+        if response.status_code == 200:
+            data = response.json()
+            quote = data.get("Global Quote")
+
+            if quote and "05. price" in quote:
+                price = float(quote["05. price"])
+                return round(price, 2)
+            else:
+                print(f"Нет данных для акции {stock}: {data}")
+        else:
+            print(f"Ошибка запроса для акции {stock}: {response.status_code}")
+
+    except Exception as e:
+        print(f"Исключение при запросе акции {stock}: {e}")
+
+    return 0.0
 
 
 def get_stock_prices(filepath: str) -> list[dict]:
     """
-    Функция берет названия компаний из файла .json и возвращает список словарей
-    с названием компании и стоимости ее акций. Акции подтягивается через API.
+    Функция загружает акции и получает цены акций.
     """
-    try:
-        with open(filepath, encoding="utf-8") as file_json:
-            data = json.load(file_json)
-            stock = data.get("user_stocks", [])
-    except FileNotFoundError:
-        return []
-    except json.JSONDecodeError:
-        return []
-    except Exception:
-        return []
-    else:
-        stock_prices = []
-        for st in stock:
-            params = {"function": "GLOBAL_QUOTE", "symbol": st, "apikey": API_KEY_ALPHAVANTAGE}
-
-            try:
-                response = requests.get(BASE_URL_ALPHAVANTAGE, params=params, timeout=10)  # type: ignore
-                if response.status_code == 200:
-                    data = response.json()
-                    quote = data.get("Global Quote")
-                    if quote and "05. price" in quote:
-                        price = float(quote["05. price"])
-                        stock_prices.append({"stock": st, "price": round(price, 2)})
-                    else:
-                        print(f"Нет данных для {st}: {data}")
-                        stock_prices.append({"stock": st, "price": 0.0})
-                else:
-                    print(f"Ошибка запроса: {response.status_code}")
-                    stock_prices.append({"stock": st, "price": 0.0})
-            except Exception as e:
-                print(f"Исключение при запросе: {st}: {e}")
-                stock_prices.append({"stock": st, "price": 0.0})
-
-        return stock_prices
+    stocks = load_stock(filepath)
+    return fetch_stock_prices(stocks)
