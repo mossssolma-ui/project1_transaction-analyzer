@@ -178,7 +178,7 @@ def test_get_card_spending_summary_success(caplog: LogCaptureFixture) -> None:
         {"last_digits": "9876", "total_spent": 1500.0, "cashback": 15.0},
     ]
     result_sorted = sorted(result, key=lambda x: x["last_digits"])
-    expected_sorted = sorted(expected, key=lambda x: x["last_digits"]) # type: ignore
+    expected_sorted = sorted(expected, key=lambda x: x["last_digits"])  # type: ignore
 
     assert result_sorted == expected_sorted
     assert "Генерация по 3 картам" in caplog.text
