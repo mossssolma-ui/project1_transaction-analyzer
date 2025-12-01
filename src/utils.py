@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 import requests
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("logs/main_page.log", mode="w", encoding="utf-8"), logging.StreamHandler()],
+    handlers=[logging.FileHandler("logs/log.log", mode="w", encoding="utf-8"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
@@ -26,37 +26,39 @@ BASE_URL_ALPHAVANTAGE = os.getenv("BASE_URL_ALPHAVANTAGE")
 # Выборка данных из Excel-файла за определенный период
 def get_convert_dates(date_time: str, date_format: str = "%Y-%m-%d %H:%M:%S") -> list[str]:
     """
-    Функция принимает строку с датой и временем
-    Возращает 2 конвертированные даты: 1 день текущего месяца, текущий день месяца,
-    в формате: день.месяц.год.
+    Функция принимает строку с датой и временем.
+    Возвращает две даты в формате 'dd.mm.yyyy HH:MM:SS':
+      - 1-е число текущего месяца в 00:00:00
+      - Текущий день в 23:59:59
+    Пример: "2021-05-10 12:00:00" → ["01.05.2021 00:00:00", "10.05.2021 23:59:59"]
     """
     try:
         dt = datetime.strptime(date_time, date_format)
-        first_day = dt.replace(day=1)
+        first_day = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = dt.replace(hour=23, minute=59, second=59, microsecond=0)
 
         result = [
             first_day.strftime("%d.%m.%Y %H:%M:%S"),
-            dt.strftime("%d.%m.%Y %H:%M:%S"),
+            end_of_day.strftime("%d.%m.%Y %H:%M:%S"),
         ]
         logger.info(f"Конвертация прошла успешно {result}")
         return result
     except Exception as e:
-        logger.error(f"Ошибка конрветации {date_time}: {e}")
-        return ["01.01.2000 00:00:00", "01.01.2000 00:00:00"]
+        logger.error(f"Ошибка конвертации {date_time}: {e}")
+        return ["01.01.2000 00:00:00", "01.01.2000 23:59:59"]
 
 
 def get_data_period_from_file(filepath: str, period_dates: list[str]) -> pd.DataFrame:
     """
-    Функция принимает путь к xlsx-файлу и список дат.
-    Возвращает DataFrame, которая соответсвуют списку дат.
+    Функция принимает путь к xlsx-файлу и список из двух строковых дат в формате 'dd.mm.yyyy HH:MM:SS'.
+    Возвращает DataFrame с транзакциями в указанном диапазоне (включительно).
     """
     try:
         df = pd.read_excel(filepath)
         df["Дата операции"] = pd.to_datetime(df["Дата операции"], dayfirst=True)
 
         start_date = datetime.strptime(period_dates[0], "%d.%m.%Y %H:%M:%S")
-        end = datetime.strptime(period_dates[1], "%d.%m.%Y %H:%M:%S")
-        end_date = end.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        end_date = datetime.strptime(period_dates[1], "%d.%m.%Y %H:%M:%S")
 
         filtered_df = df.loc[(df["Дата операции"] >= start_date) & (df["Дата операции"] <= end_date)]
         logger.info(f"Загружено {len(filtered_df)} записей за период {period_dates}")
@@ -68,7 +70,7 @@ def get_data_period_from_file(filepath: str, period_dates: list[str]) -> pd.Data
 
 # 1. Функция "Приветствие"
 def get_greeting(date_time: str) -> str:
-    """Возвращает приветствие по времени суток из полученной строки"""
+    """Возвращает приветствие по времени суток из полученной строки."""
     try:
         date_dt = datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
         time_now = date_dt.hour
@@ -82,10 +84,10 @@ def get_greeting(date_time: str) -> str:
         else:
             message = "Доброй ночи"
 
-        logger.info(f"Генерация приветсвия {message} для времени {date_time}")
+        logger.info(f"Генерация приветствия {message} для времени {date_time}")
         return message
     except Exception as e:
-        logger.error(f"Ошибка генерации приветсвия для {date_time}: {e}")
+        logger.error(f"Ошибка генерации приветствия для {date_time}: {e}")
         return "Добрый день"
 
 
@@ -118,7 +120,7 @@ def get_card_spending_summary(transactions: pd.DataFrame) -> list[dict]:
         logger.info(f"Генерация по {len(result)} картам")
         return result
     except Exception as e:
-        logger.error(f"Ошибка генерации в get_card_spending_summary {e}")
+        logger.error(f"Ошибка генерации в get_card_spending_summary: {e}")
         return []
 
 
@@ -126,7 +128,7 @@ def get_card_spending_summary(transactions: pd.DataFrame) -> list[dict]:
 def get_top_transactions(transactions: pd.DataFrame, get_count: int = 5) -> list[dict]:
     """
     Функция принимает DataFrame и возвращает по умолчанию
-    топ 5 транзакций по сумме платежа
+    топ 5 транзакций по сумме платежа (по модулю).
     """
     try:
         if transactions.empty:
@@ -156,7 +158,7 @@ def get_top_transactions(transactions: pd.DataFrame, get_count: int = 5) -> list
         logger.info(f"Найдено {len(result)} топ транзакций")
         return result
     except Exception as e:
-        logger.error(f"Ошибка обработки в get_top_transactions {e}")
+        logger.error(f"Ошибка обработки в get_top_transactions: {e}")
         return []
 
 
@@ -173,7 +175,7 @@ def load_currency(filepath: str) -> list[str]:
             logger.info(f"Загружены валюты: {currencies}")
             return currencies  # type: ignore
     except (FileNotFoundError, json.JSONDecodeError, Exception) as e:
-        logger.error(f"Ошибка загрузки валют {e}")
+        logger.error(f"Ошибка загрузки валют: {e}")
         return []
 
 
@@ -248,10 +250,10 @@ def load_stock(filepath: str) -> list[str]:
         with open(filepath, encoding="utf-8") as file_json:
             data = json.load(file_json)
             stocks = data.get("user_stocks", [])
-            logger.info(f"Загружены акции {stocks}")
+            logger.info(f"Загружены акции: {stocks}")
             return stocks  # type: ignore
     except (FileNotFoundError, json.JSONDecodeError, Exception) as e:
-        logger.error(f"Ошибка загрузки акциий из {filepath}: {e}")
+        logger.error(f"Ошибка загрузки акций из {filepath}: {e}")
         return []
 
 
