@@ -16,10 +16,10 @@ def main() -> None:
     print(rez_services)
 
     # отчеты
-    df = pd.read_excel("data/operations.xlsx")
-    df["Дата операции"] = pd.to_datetime(df["Дата операции"], dayfirst=True)
+    df_for_reports = pd.read_excel("data/operations.xlsx")
+    df_for_reports["Дата операции"] = pd.to_datetime(df_for_reports["Дата операции"], dayfirst=True)
 
-    category_report = spending_by_category(df, "Супермаркеты", "2021-05-31")
+    category_report = spending_by_category(df_for_reports, "Супермаркеты", "2021-05-31")
     print(f"Траты по категории 'Супермаркеты': {len(category_report)} записей")
 
 
