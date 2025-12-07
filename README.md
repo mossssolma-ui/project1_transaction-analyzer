@@ -39,12 +39,14 @@
 │ ├── operations.xlsx # Файл с банковскими транзакциями
 │ └── user_settings.json # Настройки пользователя (валюты и акции)
 ├── tests/
+│ ├── init.py
 │ ├── test_utils.py
 │ ├── test_views.py
 │ ├── test_reports.py
 │ └── test_services.py
 ├── main.py # Точка входа приложения
 ├── .env # Переменные окружения (API ключи)
+├── .env_template # Шаблон файла .env
 ├── pyproject.toml # Зависимости проекта
 ├── logs/ # Каталог для логов и отчетов
 └── README.md
@@ -75,18 +77,34 @@
     ```bash
     Убедитесь, что файл data/operations.xlsx существует
     Настройте желаемые валюты и акции в data/user_settings.json
-### Запуск
+5. Запуск
     ```bash
     poetry run python main.py
 ## 🧪 Тестирование
 Проект полностью покрыт unit-тестами с использованием pytest:
+```
+Name                     Stmts   Miss  Cover
+--------------------------------------------
+src\__init__.py              0      0   100%
+src\reports.py              59     10    83%
+src\services.py             26      0   100%
+src\utils.py               183      0   100%
+src\views.py                22      0   100%
+tests\__init__.py            0      0   100%
+tests\test_reports.py       35      0   100%
+tests\test_services.py      82      0   100%
+tests\test_utils.py        286      0   100%
+tests\test_views.py         89      0   100%
+--------------------------------------------
+TOTAL                      782     10    99%
+```
 
-    ```bash
-    # Запуск всех тестов
-    poetry run pytest
-    # Запуск с отчетом о покрытии
-    poetry run pytest --cov=src --cov-report=html
-
+```bash
+# Запуск всех тестов
+poetry run pytest
+# Запуск с отчетом о покрытии
+poetry run pytest --cov=src --cov-report=html
+```
 ## 🔧 Используемые технологии
 
 + + Python 3.12 — основной язык программирования
